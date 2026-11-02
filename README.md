@@ -1,8 +1,10 @@
 # 空心电感计算器
 
-单层空心线圈、PCB 平面螺旋、磁环，在浏览器里直接算。不用安装，也不用克隆这个仓库。
+单层空心线圈、PCB 平面螺旋、磁环。一个 HTML 文件，用浏览器打开，不用安装。
 
-**打开计算页：** <https://cdn.jsdelivr.net/gh/russelldonna11603/air-core-inductor@main/index.html>
+**现在就能用：** 打开 [index.html](index.html)，点右上角 Download，再用浏览器打开。也可以把仓库克隆下来，双击这个文件。
+
+**固定网址（需要你点一次）：** 仓库 Settings → Pages → Build and deployment 选 Deploy from a branch，分支 `main`，目录 `/ (root)`，保存。大约一分钟后地址是 <https://russelldonna11603.github.io/air-core-inductor/>。当前登录用的权限改不了 Pages 设置，所以这一步只能你自己点。
 
 关键词：空心电感、电感计算器、线圈、螺线管、业余无线电、air-core inductor、Nagaoka、Wheeler。
 
@@ -41,7 +43,3 @@
 平面螺旋用 Mohan 1999（\(c_1=1,\,c_2=2.46,\,c_3=0,\,c_4=0.20\)）。磁环用厂家 \(A_L\cdot N^2\)，或 \(\mu_0\mu_r N^2 A_e/l_e\)。
 
 没算：邻近效应、疏绕时的真实自电容、磁芯漏磁和气隙。这是绕线前的初值，不能代替测量或电磁仿真。
-
-## 本地打开
-
-下载 [index.html](index.html)，用浏览器打开即可。
