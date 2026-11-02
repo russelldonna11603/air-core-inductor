@@ -2,7 +2,7 @@
 
 单层空心线圈、PCB 平面螺旋、磁环，在浏览器里直接算。不用安装，也不用克隆这个仓库。
 
-**打开计算页：** <https://russelldonna11603.github.io/air-core-inductor/>
+**打开计算页：** <https://cdn.jsdelivr.net/gh/russelldonna11603/air-core-inductor@main/index.html>
 
 关键词：空心电感、电感计算器、线圈、螺线管、业余无线电、air-core inductor、Nagaoka、Wheeler。
 
