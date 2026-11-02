@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>空心电感计算器</title>
+<meta name="description" content="单层空心螺线管电感：Nagaoka、Wheeler 与少匝圆导线对照，并计算平面螺旋和磁环。三种长度定义分开，交流电阻不会低于直流电阻。" />
+<style>
+  :root {
+    --bg: #f3efe6;
+    --ink: #1c1915;
+    --muted: #6b645b;
+    --line: #d9d1c3;
+    --card: #fffdf8;
+    --copper: #9a4e24;
+    --copper-soft: #f3e2d4;
+    --good: #1f6b45;
+    --warn: #8a5a12;
+    --shadow: 0 1px 0 rgba(28, 25, 21, 0.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(1200px 400px at 10% -10%, #f8e7d8 0%, transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 28px 18px 64px; }
+  header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; margin-bottom: 18px; }
+  h1 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--muted); margin: 0; max-width: 46rem; }
+  a { color: var(--copper); }
+  nav { display: flex; gap: 6px; margin: 14px 0; }
+  nav button, .seg button, .ghost {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font: inherit;
+    cursor: pointer;
+  }
+  nav button[aria-selected="true"], .seg button[aria-pressed="true"] {
+    background: var(--ink);
+    color: #f7f3ea;
+    border-color: var(--ink);
+  }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 14px;
+  }
+  .card h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  input, select {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font: 15px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .metric { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff; }
+  .metric b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .metric span { color: var(--muted); font-size: 12px; }
+  .metric.primary { background: var(--copper-soft); border-color: #e4c7b0; }
+  .metric.primary b { color: var(--copper); }
+  ul.notes { margin: 10px 0 0; padding-left: 18px; color: var(--warn); }
+  ul.notes li { margin: 4px 0; }
+  .err { color: #9b2c2c; font-size: 14px; }
+  figure { margin: 0 0 12px; }
+  svg { width: 100%; height: auto; display: block; }
+  .fine { color: var(--muted); font-size: 13px; }
+  .fine p { margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); }
+  footer.card { margin-top: 14px; }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>空心电感</h1>
+      <p class="sub">单层螺线管同时给出电流片、Wheeler 和少匝圆导线。长度按你选的定义算，不把三种定义混成一个数。</p>
+    </div>
+    <a href="https://github.com/russelldonna11603/air-core-inductor">公式说明</a>
+  </header>
+  <nav>
+    <button type="button" data-tab="solenoid" aria-selected="true">螺线管</button>
+    <button type="button" data-tab="planar" aria-selected="false">平面螺旋</button>
+    <button type="button" data-tab="toroid" aria-selected="false">磁环</button>
+  </nav>
+
+  <section id="solenoid" class="layout">
+    <form class="card" id="solenoid-form">
+      <h2>几何</h2>
+      <div class="seg" id="unit-seg">
+        <button type="button" data-unit="mm" aria-pressed="true">mm</button>
+        <button type="button" data-unit="in" aria-pressed="false">inch</button>
+      </div>
+      <div class="row">
+        <label>匝数 N<input id="N" type="number" min="1" max="500" step="1" value="10" /></label>
+        <label>绕径 D<input id="D" type="number" min="0" step="any" value="8" /></label>
+        <label>线径 d<input id="d" type="number" min="0" step="any" value="0.5" /></label>
+        <label>匝距 p<input id="p" type="number" min="0" step="any" value="0.8" /></label>
+      </div>
+      <div class="seg" id="def-seg">
+        <button type="button" data-def="sheet" aria-pressed="true">电流片</button>
+        <button type="button" data-def="centers" aria-pressed="false">中心距</button>
+        <button type="button" data-def="overall" aria-pressed="false">外包</button>
+      </div>
+      <p class="fine" id="len-line"></p>
+      <label>频率 MHz，可留空<input id="f" type="number" min="0" step="any" value="10" /></label>
+      <div class="row">
+        <label>目标电感 nH<input id="target" type="number" min="0" step="any" placeholder="反求匝数" /></label>
+        <label>&nbsp;<button class="ghost" id="solve" type="button" style="width:100%">按目标求匝数</button></label>
+      </div>
+      <button class="ghost" id="preset" type="button">短线圈对照：N=3，D=2，p=0.5</button>
+    </form>
+    <div>
+      <figure class="card" style="padding:8px 8px 0">
+        <svg id="coil" viewBox="0 0 640 220" role="img" aria-label="螺线管侧视"></svg>
+      </figure>
+      <div class="card">
+        <h2>结果</h2>
+        <div id="solenoid-out"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="planar" class="layout" hidden>
+    <form class="card">
+      <h2>方形近似的圆螺旋</h2>
+      <label>外径 mm<input id="p-dout" type="number" min="0" step="any" value="12" /></label>
+      <label>匝数<input id="p-n" type="number" min="1" step="1" value="4" /></label>
+      <div class="row">
+        <label>线宽 mm<input id="p-w" type="number" min="0" step="any" value="0.3" /></label>
+        <label>间距 mm<input id="p-g" type="number" min="0" step="any" value="0.2" /></label>
+      </div>
+      <p class="fine">Mohan 1999，c1=1，c2=2.46，c3=0，c4=0.20。适合 PCB 螺旋的初值，不能代替电磁仿真。</p>
+    </form>
+    <div class="card"><h2>结果</h2><div id="planar-out"></div></div>
+  </section>
+
+  <section id="toroid" class="layout" hidden>
+    <form class="card">
+      <h2>磁环</h2>
+      <div class="seg" id="tor-seg">
+        <button type="button" data-mode="al" aria-pressed="true">用 AL</button>
+        <button type="button" data-mode="core" aria-pressed="false">用磁芯</button>
+      </div>
+      <label>匝数 N<input id="t-n" type="number" min="1" step="1" value="10" /></label>
+      <label>AL nH/N²<input id="t-al" type="number" min="0" step="any" value="100" /></label>
+      <div id="core-fields" hidden>
+        <label>相对磁导率 μr<input id="t-mu" type="number" min="0" step="any" value="100" /></label>
+        <div class="row">
+          <label>Ae mm²<input id="t-ae" type="number" min="0" step="any" value="20" /></label>
+          <label>le mm<input id="t-le" type="number" min="0" step="any" value="40" /></label>
+        </div>
+      </div>
+    </form>
+    <div class="card"><h2>结果</h2><div id="toroid-out"></div>
+      <p class="fine">磁环电感不靠空心公式。厂家 AL 已经含了磁路，L = AL·N²。自己填 μ、Ae、le 时按均匀磁路，漏磁和气隙都不在里面。</p>
+    </div>
+  </section>
+
+  <footer class="card fine">
+    <h2>三种公式各自什么时候准</h2>
+    <table>
+      <thead><tr><th>公式</th><th>什么时候用</th><th>不要用的时候</th></tr></thead>
+      <tbody>
+        <tr><td>Nagaoka 电流片</td><td>匝数够多、绕得比较密的单层空心线圈。主结果用它。</td><td>一两匝。它把导线当成连续电流片，少匝会偏高，大约一成。</td></tr>
+        <tr><td>Wheeler</td><td>l/D 大约在 0.4 以上的单层线圈，和 Nagaoka 很接近，方便手算。</td><td>很短的线圈。l/D 小于 0.3 时它开始明显离开 Nagaoka。</td></tr>
+        <tr><td>圆导线回路</td><td>1 到 12 匝。用椭圆积分算同轴圆之间的互感，少匝以它为准。</td><td>匝数再多就没有必要，电流片已经够用，而且计算按匝数平方变贵。</td></tr>
+      </tbody>
+    </table>
+    <p>长度三种定义：电流片 l = N·p；中心距 l = (N−1)·p；外包 l = (N−1)·p + d。同一个线圈换定义，电感会变，因为长度进了公式。</p>
+    <p>交流电阻用孤立圆导线的高频渐近 Rac = Rdc·d/(4δ)，并且不会低于 Rdc。匝靠得近时邻近效应没算，真实电阻更高。自电容是 Medhurst 的密绕拟合，疏绕会把电容估高。</p>
+  </footer>
+</main>
+<script>
+const MU0 = 4 * Math.PI * 1e-7;
+const $ = (id) => document.getElementById(id);
+let unit = "mm";
+let lenDef = "sheet";
+
+function ellipticKE(m) {
+  if (m <= 0) return { K: Math.PI / 2, E: Math.PI / 2 };
+  if (m >= 1) return { K: Infinity, E: 1 };
+  let a = 1, g = Math.sqrt(1 - m), sum = m, two = 1;
+  for (let i = 0; i < 24; i++) {
+    const nextA = (a + g) / 2;
+    const nextG = Math.sqrt(a * g);
+    const c = (a - g) / 2;
+    a = nextA; g = nextG; two *= 2; sum += two * c * c;
+    if (Math.abs(c) < 1e-15) break;
+  }
+  const K = Math.PI / (2 * a);
+  return { K, E: K * (1 - sum / 2) };
+}
+function nagaokaK(Dmm, lmm) {
+  const r = (Dmm / 2) / lmm;
+  const denom = 1 + 0.9 * r - 0.02 * r * r;
+  if (denom > 0.05) return 1 / denom;
+  const u = Dmm / lmm;
+  return (2 / (Math.PI * u)) * (Math.log(4 * u) - 0.5);
+}
+function nagaokaNH(N, Dmm, lmm) {
+  const area = Math.PI * (Dmm / 2000) ** 2;
+  return MU0 * N * N * area / (lmm / 1000) * nagaokaK(Dmm, lmm) * 1e9;
+}
+function wheelerNH(N, Dmm, lmm) {
+  const d = Dmm / 25.4, l = lmm / 25.4;
+  return (d * d * N * N) / (18 * d + 40 * l) * 1000;
+}
+function lengthFromPitch(N, pitch, wire, def) {
+  if (def === "sheet") return N * pitch;
+  if (N <= 1) return def === "overall" ? wire : 0;
+  if (def === "centers") return (N - 1) * pitch;
+  return (N - 1) * pitch + wire;
+}
+function loopNH(Dmm, wireMM, internal) {
+  const radius = Dmm / 2000, wr = wireMM / 2000;
+  if (!(radius > wr)) return NaN;
+  return MU0 * radius * (Math.log((8 * radius) / wr) - 2 + (internal ? 0.25 : 0)) * 1e9;
+}
+function mutualNH(radiusM, separationM) {
+  const k2 = (4 * radiusM * radiusM) / (4 * radiusM * radiusM + separationM * separationM);
+  const k = Math.sqrt(k2);
+  const { K, E } = ellipticKE(k2);
+  return MU0 * radiusM * ((2 / k - k) * K - (2 / k) * E) * 1e9;
+}
+function filamentNH(N, Dmm, pitch, wire, internal) {
+  if (N < 1 || N > 12 || !(pitch > 0) || !(Dmm > wire)) return null;
+  const self = loopNH(Dmm, wire, internal);
+  if (!Number.isFinite(self)) return null;
+  const radius = Dmm / 2000;
+  let sum = 0;
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) sum += mutualNH(radius, ((j - i) * pitch) / 1000);
+  return N * self + 2 * sum;
+}
+function helicalM(N, Dmm, pitch) { return N * Math.hypot(Math.PI * Dmm, pitch) / 1000; }
+function rdcOhm(wireM, wireMM) { return 1.68e-8 * wireM / (Math.PI * (wireMM / 2000) ** 2); }
+function skinMM(freqHz) { return freqHz > 0 ? 65.23 / Math.sqrt(freqHz) : null; }
+function racOhm(rdc, wireMM, skin) {
+  if (skin == null) return rdc;
+  const factor = wireMM / (4 * skin);
+  return factor > 1 ? rdc * factor : rdc;
+}
+function medhurstPF(lmm, Dmm) {
+  const l = lmm / 10, D = Dmm / 10;
+  return 0.1126 * l + 0.08 * D + 0.27 * Math.sqrt((D ** 3) / l);
+}
+function resonantHz(nH, pF) { return 1 / (2 * Math.PI * Math.sqrt(nH * 1e-9 * pF * 1e-12)); }
+function fmtL(nH) {
+  if (!Number.isFinite(nH)) return "—";
+  const a = Math.abs(nH);
+  if (a >= 1e6) return (nH / 1e6).toFixed(3) + " mH";
+  if (a >= 1000) return (nH / 1000).toFixed(3) + " µH";
+  if (a >= 10) return nH.toFixed(2) + " nH";
+  return nH.toFixed(3) + " nH";
+}
+function fmtOhm(ohm) {
+  if (!Number.isFinite(ohm)) return "—";
+  const a = Math.abs(ohm);
+  if (a < 1) return (ohm * 1000).toFixed(1) + " mΩ";
+  if (a < 1000) return ohm.toFixed(3) + " Ω";
+  return (ohm / 1000).toFixed(2) + " kΩ";
+}
+function fmtHz(hz) {
+  if (!Number.isFinite(hz)) return "—";
+  if (hz >= 1e9) return (hz / 1e9).toFixed(2) + " GHz";
+  if (hz >= 1e6) return (hz / 1e6).toFixed(2) + " MHz";
+  if (hz >= 1e3) return (hz / 1e3).toFixed(1) + " kHz";
+  return hz.toFixed(0) + " Hz";
+}
+function fmtSkin(mm) {
+  if (mm == null) return "—";
+  const um = mm * 1000;
+  return um >= 1000 ? mm.toFixed(2) + " mm" : um.toFixed(2) + " µm";
+}
+function toMM(v) { return unit === "in" ? v * 25.4 : v; }
+function fromMM(mm) { return unit === "in" ? mm / 25.4 : mm; }
+function num(id) { return Number($(id).value); }
+
+function metric(label, value, primary) {
+  return `<div class="metric${primary ? " primary" : ""}"><span>${label}</span><b>${value}</b></div>`;
+}
+
+function drawCoil(N, Dmm, lmm, pitch, wire) {
+  const svg = $("coil");
+  const shown = Math.max(1, Math.min(N, 18));
+  const scale = Math.min(280 / Math.max(lmm, 0.1), 90 / Math.max(Dmm, 0.1));
+  const w = lmm * scale;
+  const h = Dmm * scale;
+  const x0 = 70;
+  const y0 = 118;
+  const parts = [];
+  parts.push(`<line x1="${x0}" y1="${y0 - h / 2}" x2="${x0}" y2="${y0 + h / 2}" stroke="#9a4e24" stroke-width="1"/>`);
+  parts.push(`<text x="${x0 - 8}" y="${y0}" fill="#6b645b" font-size="12" text-anchor="end" dominant-baseline="middle">D</text>`);
+  parts.push(`<line x1="${x0}" y1="${y0 + h / 2 + 16}" x2="${x0 + w}" y2="${y0 + h / 2 + 16}" stroke="#9a4e24" stroke-width="1"/>`);
+  parts.push(`<text x="${x0 + w / 2}" y="${y0 + h / 2 + 32}" fill="#6b645b" font-size="12" text-anchor="middle">l</text>`);
+  for (let i = 0; i < shown; i++) {
+    const x = x0 + (shown === 1 ? w / 2 : (i + 0.5) * (w / shown));
+    const rx = Math.max(3, (wire * scale) / 2);
+    parts.push(`<ellipse cx="${x.toFixed(1)}" cy="${y0}" rx="${rx.toFixed(1)}" ry="${(h / 2).toFixed(1)}" fill="none" stroke="#c47a45" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.7"/>`);
+    parts.push(`<path d="M ${x.toFixed(1)} ${(y0 - h / 2).toFixed(1)} A ${rx.toFixed(1)} ${(h / 2).toFixed(1)} 0 0 1 ${x.toFixed(1)} ${(y0 + h / 2).toFixed(1)}" fill="none" stroke="#9a4e24" stroke-width="2.2"/>`);
+  }
+  if (N > shown) parts.push(`<text x="${x0 + w + 8}" y="${y0}" fill="#6b645b" font-size="12">… ${N} 匝</text>`);
+  svg.innerHTML = parts.join("");
+}
+
+function renderSolenoid() {
+  const N = num("N");
+  const Dmm = toMM(num("D"));
+  const wire = toMM(num("d"));
+  const pitch = toMM(num("p"));
+  const freq = num("f");
+  const out = $("solenoid-out");
+  const lmm = lengthFromPitch(N, pitch, wire, lenDef);
+  const unitName = unit === "in" ? "in" : "mm";
+  $("len-line").textContent = Number.isFinite(lmm)
+    ? `按当前定义，长度 l = ${fromMM(lmm).toFixed(3)} ${unitName}`
+    : "";
+  if (!(N >= 1) || !(Dmm > 0) || !(wire > 0) || !(pitch > 0) || !(lmm > 0)) {
+    out.innerHTML = `<p class="err">匝数、绕径、线径、匝距都要是正数，而且按这个定义长度要大于 0。</p>`;
+    return;
+  }
+  if (pitch + 1e-9 < wire) {
+    out.innerHTML = `<p class="err">匝距小于线径，线会叠在一起。</p>`;
+    return;
+  }
+  if (Dmm <= wire) {
+    out.innerHTML = `<p class="err">绕径要大于线径。</p>`;
+    return;
+  }
+  const nag = nagaokaNH(N, Dmm, lmm);
+  const wh = wheelerNH(N, Dmm, lmm);
+  const freqHz = freq > 0 ? freq * 1e6 : 0;
+  const skin = skinMM(freqHz);
+  const internal = skin == null || skin > wire / 2;
+  const fil = filamentNH(Math.round(N), Dmm, pitch, wire, internal);
+  const wireM = helicalM(N, Dmm, pitch);
+  const rdc = rdcOhm(wireM, wire);
+  const rac = racOhm(rdc, wire, skin);
+  const q = freqHz > 0 ? (2 * Math.PI * freqHz * nag * 1e-9) / rac : null;
+  const c = medhurstPF(lmm, Dmm);
+  const srf = resonantHz(nag, c);
+  const ratio = lmm / Dmm;
+  const warnings = [];
+  if (N <= 1) warnings.push("单匝更接近环形回路。电流片只给量级，对照下面的圆导线。");
+  else if (N <= 3) warnings.push("匝数很少。电流片通常比圆导线回路偏高，大约一成。少匝看圆导线那一格。");
+  if (ratio < 0.3) warnings.push(`l/D = ${ratio.toFixed(2)}，短到 Wheeler 开始离开 Nagaoka，两式相差约 ${(Math.abs(nag - wh) / nag * 100).toFixed(0)}%。`);
+  if (pitch > wire * 1.6) warnings.push("匝间偏疏。Medhurst 按密绕拟合，疏绕会把自电容估高、自谐振估低。");
+  if (freqHz > 0 && pitch < wire * 1.5) warnings.push("交流电阻没算邻近效应。匝靠得近时真实电阻更高，Q 更低。");
+  drawCoil(Math.round(N), Dmm, lmm, pitch, wire);
+  out.innerHTML = `
+    <div class="metrics">
+      ${metric("Nagaoka 电流片", fmtL(nag), true)}
+      ${metric("Wheeler", fmtL(wh))}
+      ${metric("圆导线（≤12 匝）", fil == null ? (N > 12 ? "匝数过多，用电流片" : "—") : fmtL(fil))}
+      ${metric("Nagaoka 系数 K", nagaokaK(Dmm, lmm).toFixed(3))}
+      ${metric("l/D", ratio.toFixed(3))}
+      ${metric("导线长度", wireM.toFixed(3) + " m")}
+      ${metric("直流电阻", fmtOhm(rdc))}
+      ${metric("趋肤深度", fmtSkin(skin))}
+      ${metric("交流电阻", fmtOhm(rac))}
+      ${metric("Q（按 Nagaoka）", q == null ? "—" : q.toFixed(1))}
+      ${metric("Medhurst 电容", c.toFixed(2) + " pF")}
+      ${metric("自谐振", fmtHz(srf))}
+    </div>
+    ${warnings.length ? `<ul class="notes">${warnings.map((w) => `<li>${w}</li>`).join("")}</ul>` : ""}
+  `;
+}
+
+function renderPlanar() {
+  const Dout = num("p-dout"), turns = num("p-n"), width = num("p-w"), gap = num("p-g");
+  const out = $("planar-out");
+  if (!(Dout > 0) || !(width > 0) || !(gap >= 0) || !(turns >= 1)) {
+    out.innerHTML = `<p class="err">外径和线宽要是正数。</p>`;
+    return;
+  }
+  const inner = Dout - 2 * turns * width - 2 * (turns - 1) * gap;
+  if (!(inner > 0)) {
+    out.innerHTML = `<p class="err">外径放不下这么多匝。</p>`;
+    return;
+  }
+  const avg = (Dout + inner) / 2;
+  const fill = (Dout - inner) / (Dout + inner);
+  const L = MU0 * turns * turns * (avg / 1000) / 2 * (Math.log(2.46 / fill) + 0.2 * fill * fill) * 1e9;
+  out.innerHTML = `<div class="metrics">
+    ${metric("电感", fmtL(L), true)}
+    ${metric("内径", inner.toFixed(2) + " mm")}
+    ${metric("平均直径", avg.toFixed(2) + " mm")}
+    ${metric("填充比 ρ", fill.toFixed(3))}
+  </div>`;
+}
+
+function renderToroid() {
+  const mode = document.querySelector("#tor-seg button[aria-pressed='true']").dataset.mode;
+  $("core-fields").hidden = mode !== "core";
+  $("t-al").parentElement.hidden = mode !== "al";
+  const turns = num("t-n");
+  const out = $("toroid-out");
+  if (!(turns >= 1)) { out.innerHTML = `<p class="err">匝数至少为 1。</p>`; return; }
+  let nH;
+  if (mode === "al") {
+    const al = num("t-al");
+    if (!(al > 0)) { out.innerHTML = `<p class="err">AL 要是正数。</p>`; return; }
+    nH = al * turns * turns;
+  } else {
+    const mu = num("t-mu"), ae = num("t-ae"), le = num("t-le");
+    if (!(mu > 0) || !(ae > 0) || !(le > 0)) { out.innerHTML = `<p class="err">磁导率、截面积和磁路长度都要是正数。</p>`; return; }
+    nH = MU0 * mu * turns * turns * (ae / 1e6) / (le / 1e3) * 1e9;
+  }
+  out.innerHTML = `<div class="metrics">${metric("电感", fmtL(nH), true)}</div>`;
+}
+
+document.querySelectorAll("nav button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
+    ["solenoid", "planar", "toroid"].forEach((id) => { $(id).hidden = id !== btn.dataset.tab; });
+  });
+});
+$("unit-seg").addEventListener("click", (event) => {
+  const btn = event.target.closest("button");
+  if (!btn || btn.dataset.unit === unit) return;
+  const next = btn.dataset.unit;
+  for (const id of ["D", "d", "p"]) {
+    const mm = unit === "in" ? num(id) * 25.4 : num(id);
+    $(id).value = (next === "in" ? mm / 25.4 : mm).toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+  }
+  unit = next;
+  $("unit-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  renderSolenoid();
+});
+$("def-seg").addEventListener("click", (event) => {
+  const btn = event.target.closest("button");
+  if (!btn) return;
+  lenDef = btn.dataset.def;
+  $("def-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  renderSolenoid();
+});
+$("tor-seg").addEventListener("click", (event) => {
+  const btn = event.target.closest("button");
+  if (!btn) return;
+  $("tor-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  renderToroid();
+});
+["N", "D", "d", "p", "f"].forEach((id) => $(id).addEventListener("input", renderSolenoid));
+["p-dout", "p-n", "p-w", "p-g"].forEach((id) => $(id).addEventListener("input", renderPlanar));
+["t-n", "t-al", "t-mu", "t-ae", "t-le"].forEach((id) => $(id).addEventListener("input", renderToroid));
+$("preset").addEventListener("click", () => {
+  unit = "mm";
+  lenDef = "sheet";
+  $("unit-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.unit === "mm")));
+  $("def-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.def === "sheet")));
+  $("N").value = 3; $("D").value = 2; $("d").value = 0.4; $("p").value = 0.5; $("f").value = "";
+  renderSolenoid();
+});
+$("solve").addEventListener("click", () => {
+  const target = num("target");
+  const Dmm = toMM(num("D"));
+  const pitch = toMM(num("p"));
+  const wire = toMM(num("d"));
+  if (!(target > 0)) return;
+  let best = null;
+  for (let n = 1; n <= 500; n++) {
+    const lmm = lengthFromPitch(n, pitch, wire, lenDef);
+    if (!(lmm > 0) || !(Dmm > wire)) continue;
+    const L = nagaokaNH(n, Dmm, lmm);
+    const err = Math.abs(L - target);
+    if (!best || err < best.err) best = { n, err, L };
+  }
+  if (!best) return;
+  $("N").value = best.n;
+  renderSolenoid();
+});
+renderSolenoid();
+renderPlanar();
+renderToroid();
+</script>
+</body>
+</html>
